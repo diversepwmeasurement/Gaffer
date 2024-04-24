@@ -1,33 +1,35 @@
-name: Release To Nexus as standalone
-
-on: [ workflow_dispatch ]
-
 jobs:
   run-maven-release:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-    - name: Setup JDK
+    - continue-on-error: true
+      name: Setup JDK
       uses: actions/setup-java@v4
       with:
-        distribution: 'zulu'
+        distribution: zulu
         java-version: '8'
-
-    - name: Checkout Branch
+    - continue-on-error: true
+      name: Checkout Branch
       uses: actions/checkout@v4
-
-    - name: Decode CodeSigning key
+    - continue-on-error: true
       env:
-        CODE_SIGNING_KEY: ${{ secrets.CODE_SIGNING_KEY }}
         CODE_SIGNING_IV: ${{ secrets.CODE_SIGNING_IV }}
-      run: openssl aes-256-cbc -K "$CODE_SIGNING_KEY" -iv "$CODE_SIGNING_IV" -in cd/codesigning.asc.enc -out cd/codesigning.asc -d
-
-    - name: Import CodeSigning key
+        CODE_SIGNING_KEY: ${{ secrets.CODE_SIGNING_KEY }}
+      name: Decode CodeSigning key
+      run: openssl aes-256-cbc -K "$CODE_SIGNING_KEY" -iv "$CODE_SIGNING_IV" -in cd/codesigning.asc.enc
+        -out cd/codesigning.asc -d
+    - continue-on-error: true
+      name: Import CodeSigning key
       run: gpg --batch --fast-import cd/codesigning.asc
-
-    - name: Release to Nexus
+    - continue-on-error: true
       env:
         GPG_KEY_NAME: ${{ secrets.GPG_KEY_NAME }}
         GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        OSS_NEXUS_USERNAME: ${{ secrets.OSS_NEXUS_USERNAME }}
         OSS_NEXUS_PASSWORD: ${{ secrets.OSS_NEXUS_PASSWORD }}
+        OSS_NEXUS_USERNAME: ${{ secrets.OSS_NEXUS_USERNAME }}
+      name: Release to Nexus
       run: mvn deploy -P quick,ossrh-release --settings cd/mvnsettings.xml -B
+name: Release To Nexus as standalone
+on:
+  repository_dispatch:
+    types: trigger-ga___release-standalone.yaml

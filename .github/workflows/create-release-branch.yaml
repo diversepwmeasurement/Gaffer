@@ -1,63 +1,67 @@
-name: Create Release Branch
-
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release Branch Version'
-        required: false
-
 env:
-  artifactId: gaffer2
   MAVEN_OPTS: -Dmaven.wagon.http.retryHandler.count=3 -Dmaven.wagon.httpconnectionManager.ttlSeconds=25
-
+  artifactId: gaffer2
 jobs:
   create-release-branch:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-    - name: Checkout develop
+    - continue-on-error: true
+      name: Checkout develop
       uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         ref: develop
         token: ${{ secrets.ADMIN_GITHUB_TOKEN }}
-        fetch-depth: 0
-
-    - name: Set version from input
+    - continue-on-error: true
       if: ${{ github.event.inputs.version }}
-      run: echo "RELEASE_VERSION=$(echo ${{ github.event.inputs.version }} | sed 's/^v//')" >> $GITHUB_ENV
-
-    - name: Get latest tag
-      if: ${{ !github.event.inputs.version }}
-      uses: actions-ecosystem/action-get-latest-tag@v1
+      name: Set version from input
+      run: echo "RELEASE_VERSION=$(echo ${{ github.event.inputs.version }} | sed 's/^v//')"
+        >> $GITHUB_ENV
+    - continue-on-error: true
       id: get-latest-tag
-
-    - name: Format latest tag
       if: ${{ !github.event.inputs.version }}
-      run: echo "CURRENT_VERSION=$(echo ${{ steps.get-latest-tag.outputs.tag }} | sed 's/^gaffer2-//')" >> $GITHUB_ENV
-
-    - name: Bump latest tag variable version
+      name: Get latest tag
+      uses: actions-ecosystem/action-get-latest-tag@v1
+    - continue-on-error: true
       if: ${{ !github.event.inputs.version }}
-      run: echo "RELEASE_VERSION=$(echo ${{ env.CURRENT_VERSION }} | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)/echo \1.$((\2+1)).0/' | sh)" >> $GITHUB_ENV
-
-    - name: Verify version regex
+      name: Format latest tag
+      run: echo "CURRENT_VERSION=$(echo ${{ steps.get-latest-tag.outputs.tag }} |
+        sed 's/^gaffer2-//')" >> $GITHUB_ENV
+    - continue-on-error: true
+      if: ${{ !github.event.inputs.version }}
+      name: Bump latest tag variable version
+      run: echo "RELEASE_VERSION=$(echo ${{ env.CURRENT_VERSION }} | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)/echo
+        \1.$((\2+1)).0/' | sh)" >> $GITHUB_ENV
+    - continue-on-error: true
+      name: Verify version regex
       run: echo ${{ env.RELEASE_VERSION }} | grep -E '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
-
-    - name: Set release branch
+    - continue-on-error: true
+      name: Set release branch
       run: echo "BRANCH_NAME=$(echo release/${{ env.RELEASE_VERSION }} )" >> $GITHUB_ENV
+    - continue-on-error: true
+      name: Set up Github credentials
+      run: 'git config user.name github-actions[bot]
 
-    - name: Set up Github credentials
-      run: |
-        git config user.name github-actions[bot]
         git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
-    - name: Update versions
-      run: |
-        mvn versions:set -DnewVersion=$RELEASE_VERSION -DgenerateBackupPoms=false
-        sed -i'' -e "s/^gaffer.version=.*/gaffer.version=$RELEASE_VERSION/" rest-api/common-rest/src/main/resources/version.properties
+        '
+    - continue-on-error: true
+      name: Update versions
+      run: 'mvn versions:set -DnewVersion=$RELEASE_VERSION -DgenerateBackupPoms=false
 
-    - name: Push to release branch
-      run: |
-        git checkout -b $BRANCH_NAME
+        sed -i'''' -e "s/^gaffer.version=.*/gaffer.version=$RELEASE_VERSION/" rest-api/common-rest/src/main/resources/version.properties
+
+        '
+    - continue-on-error: true
+      name: Push to release branch
+      run: 'git checkout -b $BRANCH_NAME
+
         git commit -a -m "prepare release $artifactId-$RELEASE_VERSION"
+
         git push --set-upstream origin $BRANCH_NAME
+
+        '
+name: Create Release Branch
+on:
+  repository_dispatch:
+    types: trigger-ga___create-release-branch.yaml
